@@ -1,0 +1,32 @@
+diff --git a/node_modules/@dfinity/agent/lib/cjs/vendor/bls/bls.js b/node_modules/@dfinity/agent/lib/cjs/vendor/bls/bls.js
+index 0c899c6..02755ed 100644
+--- a/node_modules/@dfinity/agent/lib/cjs/vendor/bls/bls.js
++++ b/node_modules/@dfinity/agent/lib/cjs/vendor/bls/bls.js
+@@ -20,7 +20,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.bls_verify = exports.bls_init = void 0;
+-const base64Arraybuffer = __importStar(require("base64-arraybuffer"));
++import { decode } from 'base-64';
+ /* tslint:disable */
+ /* eslint-disable */
+ let wasm;
+@@ -825,7 +825,17 @@ const wasmBytesBase64 = `
+     kLWJ5AwVydXN0Yx0xLjQ5LjAgKGUxODg0YThlMyAyMDIwLTEyLTI5KQZ3YWxydXMGMC4xOC4wDHdhc20tYmluZGdlbhIw
+     LjIuNzAgKGI2MzU1YzI3MCk=
+ `.replace(/[^0-9a-zA-Z/+]/g, '');
+-const wasmBytes = base64Arraybuffer.decode(wasmBytesBase64);
++
++function convertBinaryStringToUint8Array(bStr) {
++    var i, len = bStr.length, u8_array = new Uint8Array(len);
++    for (var i = 0; i < len; i++) {
++        u8_array[i] = bStr.charCodeAt(i);
++    }
++    return u8_array;
++}
++
++const wasmBytes = convertBinaryStringToUint8Array(decode(wasmBytesBase64));
++
+ /**
+  * @returns {number}
+  */
