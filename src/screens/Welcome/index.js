@@ -34,7 +34,7 @@ function Welcome() {
       '{"request_id":[7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7],"cert":{"tree":[0],"signature":[],"delegation":null}}',
     );
     console.log(`response ${data}`);
-    // setSignedData(data);
+    setSignedData(data);
   };
 
   const demoInterchange = () => {
@@ -66,7 +66,7 @@ function Welcome() {
         <Button
           buttonStyle={[styles.buttonMargin, styles.buttonStyling]}
           text="Sign Data"
-          onPress={() => demoInterchange()}
+          onPress={() => signData()}
         />
         <Text style={styles.title}>{signedData}</Text>
       </View>
