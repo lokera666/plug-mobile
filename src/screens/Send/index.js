@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Text, ScrollView, Keyboard } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 
@@ -38,7 +38,7 @@ import {
 
 const INITIAL_ADDRESS_INFO = { isValid: null, type: null };
 
-const Send = ({ modalRef, nft, onSuccess }) => {
+const Send = ({ modalRef, nft, token, onSuccess }) => {
   const dispatch = useDispatch();
   const { isSensorAvailable, getPassword } = useKeychain();
   const { icpPrice } = useSelector(state => state.icp);
@@ -67,7 +67,10 @@ const Send = ({ modalRef, nft, onSuccess }) => {
   const to = address || selectedContact?.id;
 
   useEffect(() => {
-    setSelectedContact(contacts.find(c => c.id === address));
+    const savedContact = contacts.find(c => c.id === address);
+    if (savedContact) {
+      setSelectedContact(savedContact);
+    }
   }, [contacts, address]);
 
   useEffect(() => {
@@ -80,8 +83,8 @@ const Send = ({ modalRef, nft, onSuccess }) => {
     setSelectedContact(contact);
   };
 
-  const onTokenPress = token => {
-    setSelectedToken(token);
+  const onTokenPress = pressedToken => {
+    setSelectedToken(pressedToken);
     setSelectedNft(null);
   };
 
@@ -161,6 +164,8 @@ const Send = ({ modalRef, nft, onSuccess }) => {
       const biometrics = await getPassword();
       if (biometrics) {
         send();
+      } else {
+        setLoading(false);
       }
     } else {
       send();
@@ -171,7 +176,13 @@ const Send = ({ modalRef, nft, onSuccess }) => {
     if (!selectedToken && nft) {
       setSelectedNft(nft);
     }
-  }, [nft]);
+  }, [nft, isValidAddress]);
+
+  useEffect(() => {
+    if (!selectedNft && token) {
+      setSelectedToken(token);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (selectedNft && (isValidAddress || selectedContact)) {
@@ -212,13 +223,21 @@ const Send = ({ modalRef, nft, onSuccess }) => {
     }
   }, [address, selectedContact, selectedToken]);
 
-  const availableAmount = formatSendAmount(
-    getAvailableAmount(selectedToken?.amount),
-    ICP_MAX_DECIMALS,
+  const availableAmount = useMemo(
+    () =>
+      formatSendAmount(
+        getAvailableAmount(selectedToken?.amount, selectedToken?.symbol),
+        ICP_MAX_DECIMALS,
+      ),
+    [selectedToken],
   );
-  const availableUsdAmount = formatSendAmount(
-    getUsdAvailableAmount(availableAmount, selectedTokenPrice),
-    USD_MAX_DECIMALS,
+  const availableUsdAmount = useMemo(
+    () =>
+      formatSendAmount(
+        getUsdAvailableAmount(availableAmount, selectedTokenPrice),
+        USD_MAX_DECIMALS,
+      ),
+    [availableAmount, selectedTokenPrice],
   );
 
   const getSaveContactRef = () => {
@@ -229,9 +248,26 @@ const Send = ({ modalRef, nft, onSuccess }) => {
     }
   };
 
+  const handleBack = () => {
+    setAddress(null);
+    setSelectedContact(null);
+    setAddressInfo(INITIAL_ADDRESS_INFO);
+  };
+
   return (
     <Modal modalRef={modalRef} onClose={resetState}>
-      <Header center={<Text style={FontStyles.Subtitle2}>Send</Text>} />
+      <Header
+        left={
+          isValidAddress && (
+            <Text
+              style={[FontStyles.Normal, styles.valid]}
+              onPress={handleBack}>
+              Back
+            </Text>
+          )
+        }
+        center={<Text style={FontStyles.Subtitle2}>Send</Text>}
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
@@ -240,6 +276,7 @@ const Send = ({ modalRef, nft, onSuccess }) => {
           label="To:"
           placeholder="Name or address"
           variant="innerLabel"
+          hideGradient
           value={selectedContact ? selectedContact.name : address}
           onChangeText={onChangeText}
           textStyle={isValidAddress ? styles.valid : null}
