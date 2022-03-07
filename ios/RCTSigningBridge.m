@@ -23,10 +23,10 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(signData:(NSString *) data){
   return [NSString stringWithUTF8String:signedData];
 }
 
-RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(interchangeDemo:(NSString *) data){
-  const char *command = [data UTF8String];
-  const char *signedData = interchange_demo(command);
-  return [NSString stringWithUTF8String:signedData];
-}
+// RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(interchangeDemo:(NSString *) data){
+//   const char *command = [data UTF8String];
+//   const char *signedData = interchange_demo(command);
+//   return [NSString stringWithUTF8String:signedData];
+// }
 
 @end

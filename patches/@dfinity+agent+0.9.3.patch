@@ -1,0 +1,134 @@
+diff --git a/node_modules/@dfinity/agent/lib/cjs/polling/index.js b/node_modules/@dfinity/agent/lib/cjs/polling/index.js
+index 39c803a..6bbffe2 100644
+--- a/node_modules/@dfinity/agent/lib/cjs/polling/index.js
++++ b/node_modules/@dfinity/agent/lib/cjs/polling/index.js
+@@ -27,6 +27,8 @@ const candid_1 = require("@dfinity/candid");
+ exports.strategy = __importStar(require("./strategy"));
+ var strategy_1 = require("./strategy");
+ Object.defineProperty(exports, "defaultStrategy", { enumerable: true, get: function () { return strategy_1.defaultStrategy; } });
++import { NativeModules } from 'react-native';
++const { SigningBridge } = NativeModules;
+ /**
+  * Polls the IC to check the status of the given request then
+  * returns the response bytes once the request has been processed.
+@@ -35,48 +37,81 @@ Object.defineProperty(exports, "defaultStrategy", { enumerable: true, get: funct
+  * @param requestId The Request ID to poll status for.
+  * @param strategy A polling strategy.
+  */
+-async function pollForResponse(agent, canisterId, requestId, strategy) {
+-    const path = [candid_1.blobFromText('request_status'), requestId];
+-    const state = await agent.readState(canisterId, { paths: [path] });
+-    const cert = new certificate_1.Certificate(state, agent);
+-    const verified = await cert.verify();
+-    if (!verified) {
+-        throw new Error('Fail to verify certificate');
+-    }
+-    const maybeBuf = cert.lookup([...path, candid_1.blobFromText('status')]);
+-    let status;
+-    if (typeof maybeBuf === 'undefined') {
+-        // Missing requestId means we need to wait
+-        status = agent_1.RequestStatusResponseStatus.Unknown;
++
++ function isArrayOrTypedArray(x) {
++    return Boolean(x && (typeof x === 'object') && (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))));
++}
++
++// Function that takes in an object and parses
++// all ArrayBuffer values into arrays
++const parseArrayBuffers = (obj) => {
++    if (isArrayOrTypedArray(obj)) {
++        return [...(new Uint8Array(obj))];
+     }
+-    else {
+-        status = maybeBuf.toString();
++
++    else if (obj instanceof Array) {
++        return obj.map(parseArrayBuffers);
+     }
+-    switch (status) {
+-        case agent_1.RequestStatusResponseStatus.Replied: {
+-            return cert.lookup([...path, candid_1.blobFromText('reply')]);
++    else if (obj instanceof Object) {
++        const newObj = {};
++        for (const key of Object.keys(obj)) {
++            newObj[key] = parseArrayBuffers(obj[key]);
+         }
+-        case agent_1.RequestStatusResponseStatus.Received:
+-        case agent_1.RequestStatusResponseStatus.Unknown:
+-        case agent_1.RequestStatusResponseStatus.Processing:
+-            // Execute the polling strategy, then retry.
+-            await strategy(canisterId, requestId, status);
+-            return pollForResponse(agent, canisterId, requestId, strategy);
+-        case agent_1.RequestStatusResponseStatus.Rejected: {
+-            const rejectCode = cert.lookup([...path, candid_1.blobFromText('reject_code')]).toString();
+-            const rejectMessage = cert.lookup([...path, candid_1.blobFromText('reject_message')]).toString();
+-            throw new Error(`Call was rejected:\n` +
+-                `  Request ID: ${request_id_1.toHex(requestId)}\n` +
+-                `  Reject code: ${rejectCode}\n` +
+-                `  Reject text: ${rejectMessage}\n`);
+-        }
+-        case agent_1.RequestStatusResponseStatus.Done:
+-            // This is _technically_ not an error, but we still didn't see the `Replied` status so
+-            // we don't know the result and cannot decode it.
+-            throw new Error(`Call was marked as done but we never saw the reply:\n` +
+-                `  Request ID: ${request_id_1.toHex(requestId)}\n`);
++        return newObj;
+     }
+-    throw new Error('unreachable');
++    return obj;
++}
++
++async function pollForResponse(agent, canisterId, requestId, strategy) {
++    const path = [candid_1.blobFromText('request_status'), requestId];
++    const state = await agent.readState(canisterId, { paths: [path] });
++    const cert = new certificate_1.Certificate(state, agent);
++    console.log('Executing here');
++    console.log('cert', cert.cert);
++    console.log('parsed cert', parseArrayBuffers(cert.cert));
++    const payload = JSON.stringify({ requestId: Array.from(requestId), cert: cert.cert })
++    const verified = await SigningBridge.signData(payload);
++    // console.log('verified?');
++    console.log(verified);
++    return verified;
++    // const verified = await cert.verify();
++    // if (!verified) {
++    //     throw new Error('Fail to verify certificate');
++    // }
++    // const maybeBuf = cert.lookup([...path, candid_1.blobFromText('status')]);
++    // let status;
++    // if (typeof maybeBuf === 'undefined') {
++    //     // Missing requestId means we need to wait
++    //     status = agent_1.RequestStatusResponseStatus.Unknown;
++    // }
++    // else {
++    //     status = maybeBuf.toString();
++    // }
++    // switch (status) {
++    //     case agent_1.RequestStatusResponseStatus.Replied: {
++    //         return cert.lookup([...path, candid_1.blobFromText('reply')]);
++    //     }
++    //     case agent_1.RequestStatusResponseStatus.Received:
++    //     case agent_1.RequestStatusResponseStatus.Unknown:
++    //     case agent_1.RequestStatusResponseStatus.Processing:
++    //         // Execute the polling strategy, then retry.
++    //         await strategy(canisterId, requestId, status);
++    //         return pollForResponse(agent, canisterId, requestId, strategy);
++    //     case agent_1.RequestStatusResponseStatus.Rejected: {
++    //         const rejectCode = cert.lookup([...path, candid_1.blobFromText('reject_code')]).toString();
++    //         const rejectMessage = cert.lookup([...path, candid_1.blobFromText('reject_message')]).toString();
++    //         throw new Error(`Call was rejected:\n` +
++    //             `  Request ID: ${request_id_1.toHex(requestId)}\n` +
++    //             `  Reject code: ${rejectCode}\n` +
++    //             `  Reject text: ${rejectMessage}\n`);
++    //     }
++    //     case agent_1.RequestStatusResponseStatus.Done:
++    //         // This is _technically_ not an error, but we still didn't see the `Replied` status so
++    //         // we don't know the result and cannot decode it.
++    //         throw new Error(`Call was marked as done but we never saw the reply:\n` +
++    //             `  Request ID: ${request_id_1.toHex(requestId)}\n`);
++    // }
++    // throw new Error('unreachable');
+ }
+ exports.pollForResponse = pollForResponse;
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
