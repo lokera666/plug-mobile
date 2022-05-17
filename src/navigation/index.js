@@ -1,11 +1,12 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import React, { useEffect } from 'react';
-import { AppState } from 'react-native';
+import React, { forwardRef, memo, useEffect } from 'react';
+import { AppState, Linking } from 'react-native';
 import { Host } from 'react-native-portalize';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { Colors } from '@/constants/theme';
+import SwipeNavigator from '@/navigation/navigators/SwipeNavigator';
 import { setUnlocked } from '@/redux/slices/keyring';
 import BackupSeedPhrase from '@/screens/auth/BackupSeedPhrase';
 import CreatePassword from '@/screens/auth/CreatePassword';
@@ -13,16 +14,17 @@ import ImportSeedPhrase from '@/screens/auth/ImportSeedPhrase';
 import Login from '@/screens/auth/Login';
 import Welcome from '@/screens/auth/Welcome';
 import ConnectionError from '@/screens/error/ConnectionError';
-import { navigationRef } from '@/utils/navigation';
+import WalletConnect from '@/screens/flows/WalletConnect';
+import WalletConnectCallRequest from '@/screens/flows/WalletConnect/screens/RequestCall/index.js';
+import { handleDeepLink } from '@/utils/deepLink';
 
-import SwipeNavigator from './navigators/SwipeNavigator';
 import Routes from './Routes';
 
 const Stack = createStackNavigator();
 
-const Navigator = ({ routingInstrumentation }) => {
-  const dispatch = useDispatch();
+const Navigator = ({ routingInstrumentation }, navigationRef) => {
   const { isInitialized, isUnlocked } = useSelector(state => state.keyring);
+  const dispatch = useDispatch();
   let timeoutId = null;
 
   const handleLockState = () => {
@@ -30,7 +32,9 @@ const Navigator = ({ routingInstrumentation }) => {
     timeoutId = null;
   };
 
-  const handleAppStateChange = nextAppState => {
+  const handleAppStateChange = async nextAppState => {
+    const initialLink = await Linking.getInitialURL();
+
     if (nextAppState === 'background') {
       timeoutId = setTimeout(handleLockState, 120000);
     }
@@ -38,6 +42,10 @@ const Navigator = ({ routingInstrumentation }) => {
     if (nextAppState === 'active' && timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
+    }
+
+    if (initialLink) {
+      handleDeepLink(initialLink);
     }
   };
 
@@ -47,8 +55,13 @@ const Navigator = ({ routingInstrumentation }) => {
       handleAppStateChange,
     );
 
+    Linking.addEventListener('url', link => {
+      handleDeepLink(link.url);
+    });
+
     return () => {
       subscription.remove();
+      Linking.removeAllListeners();
     };
   }, []);
 
@@ -93,13 +106,21 @@ const Navigator = ({ routingInstrumentation }) => {
             component={ImportSeedPhrase}
           />
           <Stack.Screen
+            name={Routes.CONNECTION_ERROR}
+            component={ConnectionError}
+          />
+          <Stack.Screen
             name={Routes.SWIPE_LAYOUT}
             component={SwipeNavigator}
             options={{ gestureEnabled: false }}
           />
           <Stack.Screen
-            name={Routes.CONNECTION_ERROR}
-            component={ConnectionError}
+            name={Routes.WALLET_CONNECT_APPROVAL_SHEET}
+            component={WalletConnect}
+          />
+          <Stack.Screen
+            name={Routes.WALLET_CONNECT_CALL_REQUEST}
+            component={WalletConnectCallRequest}
           />
         </Stack.Navigator>
       </Host>
@@ -107,4 +128,4 @@ const Navigator = ({ routingInstrumentation }) => {
   );
 };
 
-export default Navigator;
+export default memo(forwardRef(Navigator));
