@@ -15,11 +15,10 @@ import RainbowButton from '@/components/buttons/RainbowButton';
 import { Container } from '@/layout';
 import {
   removeCallRequestToApprove,
+  walletConnectExecuteAndResponse,
   walletConnectRemovePendingRedirect,
-  walletConnectSendStatus,
 } from '@/redux/slices/walletconnect';
 import { useNavigation } from '@/utils/navigation';
-import { walletConnectHandleMethod } from '@/utils/walletConnect';
 
 import styles from '../../styles';
 
@@ -70,8 +69,10 @@ function RequestCall() {
         setTimeout(async () => {
           if (requestId) {
             await dispatch(
-              walletConnectSendStatus(peerId, requestId, {
-                error: error || 'User cancelled the request',
+              walletConnectExecuteAndResponse({
+                peerId,
+                requestId,
+                approve: false,
               }),
             );
             dispatch(removeCallRequestToApprove(requestId));
@@ -86,26 +87,19 @@ function RequestCall() {
   );
 
   const handleConfirmTransaction = useCallback(async () => {
-    let response = null;
-
-    try {
-      response = await walletConnectHandleMethod(method, args, dispatch);
-    } catch (e) {
-      console.log(`Error while ${method} transaction`, e);
+    if (requestId) {
+      await dispatch(
+        walletConnectExecuteAndResponse({
+          peerId,
+          requestId,
+          methodName: method,
+          params: args,
+          approve: true,
+        }),
+      );
+      dispatch(removeCallRequestToApprove(requestId));
     }
-
-    const { result, error } = response;
-    if (result) {
-      if (requestId) {
-        dispatch(removeCallRequestToApprove(requestId));
-        await dispatch(
-          walletConnectSendStatus({ peerId, requestId, response }),
-        );
-      }
-      closeScreen(false);
-    } else {
-      await onCancel(error);
-    }
+    closeScreen(false);
   }, [
     method,
     params,

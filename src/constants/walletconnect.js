@@ -7,14 +7,18 @@ export const PLUG_DESCRIPTION = {
 
 export const ERRORS = {
   NO_MSG_SIGN: 'No msg to sign on args',
+  NOT_APPROVED: 'Call request not approved',
 };
 
 export const DEFAULT_STATE = {
   pendingRedirect: false,
-  pendingRequests: {},
+  pendingSessionRequests: {},
   pendingCallRequests: {},
   walletConnectors: {},
+  sessions: {},
 };
 
 export const BIOMETRICS_ANIMATION_DELAY = 569;
 export const IS_TESTING = false;
+
+export const SIGNING_METHODS = ['call_request'];
